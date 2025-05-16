@@ -20,7 +20,7 @@ if (!token) {
   }
 
   try {
-    const { data }: any = jwt.verify(token, secretKey || '', { maxAge: '2hr' });
+    const { data }: any = jwt.verify(token, secretKey || '', { maxAge: '1hr' });
     req.user = data;
   } catch (err) {
     console.log('Invalid token');

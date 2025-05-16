@@ -5,8 +5,9 @@ type User {
     _id: ID
     username: String
     email: String
+    password: String
     bookCount: Int
-    savedBooks: [Book]
+    savedBooks: [Book]!
 }
 
 type Book {
@@ -33,6 +34,7 @@ input BookInput {
 }
 
 type Query {
+    user(username: String!): User
     me: User
 }
 

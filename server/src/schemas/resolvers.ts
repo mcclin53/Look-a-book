@@ -2,105 +2,98 @@ import User from '../models/User.js';
 import { signToken, AuthenticationError } from '../services/auth.js'; 
 
 interface UserInfo {
-    user?: {
-        _id: String;
-        username: String;
-        email: String;
-    };
+    username: string;
+    }
+
+interface LoginUserInfo {
+    email: string;
+    password: string;
 }
 
-interface BookData {
-  bookId: string;
-  authors: string[];
-  description: string;
-  title: string;
-  image?: string;
-  link?: string;
+
+interface CreateUserInfo {
+    input:{
+      username: string;
+      email: string;
+      password: string;
+      savedBooks: BookInput[];
+    }
+  }
+
+  interface BookInput {
+    authors: [string];
+    description: string;
+    bookId: string;
+    image: string;
+    link: string;
+    title: string;
 }
 
-interface UserDocument {
-  _id: string;
-  username: string;
-  email: string;
-  password: string;
-  bookCount: number;
-  savedBooks: BookData[];
-  isCorrectPassword: (password: string) => Promise<boolean>;
+interface DeleteBook {
+    bookId: string;   
 }
-export const resolvers = {
+
+const resolvers = {
     Query: {
-        me: async (_parent: undefined, _args: undefined, context: UserInfo) => {
+        user: async (_parent: any, { username }: UserInfo) => {
+           return User.findOne({ username });
+        }, 
+        me: async (_parent: any, _args: unknown, context: any) => {
             if (context.user) {
-                return User.findOne({ _id: context.user._id });
+              return User.findOne({ _id: context.user._id });
             }
-            throw new AuthenticationError("You need to be logged in!");
-        },
+            throw new AuthenticationError('Could not authenticate user.');
+        },       
     },
 
     Mutation: {
-        addUser: async (
-            _parent: undefined,
-            {
-                username,
-                email,
-                password,
-            }: { username: string; email: string; password: string }
-        ) => {
-            const user = await User.create({ username, email, password });
+        addUser: async (_parent: any, { input }: CreateUserInfo) => {
+            const user = await User.create({ ...input });
+          
             const token = signToken(user.username, user.email, user._id);
+            console.log("created user: " + user.username);
             return { token, user };
         },
-        login: async (
-            _parent: undefined,
-            { email, password }: { email: string; password: string }
-        ) => {
-            const user = (await User.findOne({ email })) as UserDocument;
 
+        login: async (_parent: any, { email, password }: LoginUserInfo) => {
+            const user = await User.findOne({ email });
+      
             if (!user) {
-                throw new AuthenticationError("No user found with this email address");
+              throw new AuthenticationError('Authentication for user failed.');
             }
-
-            const correctPass = await user.isCorrectPassword(password);
-
-            if (!correctPass) {
-                throw new AuthenticationError("Incorrect credentials");
+      
+            const correctPw = await user.isCorrectPassword(password);
+      
+            if (!correctPw) {
+              throw new AuthenticationError('Authentication for user failed.');
             }
-
+      
             const token = signToken(user.username, user.email, user._id);
-
+      
             return { token, user };
-        },
+          },
     
-        saveBook: async (
-            _parent: undefined,
-            { bookData }: { bookData: BookData },
-            context: UserInfo
-        ) => {
-            console.log(context.user)
-            if (context.user) {
-
-                return User.findByIdAndUpdate(
-                    { _id: context.user._id },
-                    { $addToSet: { savedBooks: bookData } },
-                    { new: true, runValidators: true }
-                );
-            }
-            throw AuthenticationError;
-        },
-  
-        removeBook: async (
-            _parent: undefined,
-            { bookId }: { bookId: string },
-            context: UserInfo
-        ) => {
+        saveBook: async (_parent: any, { book }: { book: BookInput }, context: any) => {
             if (context.user) {
                 return User.findOneAndUpdate(
                     { _id: context.user._id },
-                    { $pull: { savedBooks: { bookId } } },
+                    { $addToSet: { savedBooks: book }, },
                     { new: true }
                 );
             }
-            throw new AuthenticationError("You need to be logged in!");
+            throw new AuthenticationError("Please log in");
+        },
+        },
+  
+        removeBook: async (_parent: any, { bookId }: DeleteBook, context: any) => {
+            if (context.user) {
+                return User.findOneAndUpdate(
+                    { _id: context.user._id },
+                    { $pull: { savedBooks: { bookId: bookId } }, },
+                    { new: true, }
+                );
+            }
+            throw new AuthenticationError("Please log in");
         },
     },
 };
